@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo-alt.png">
+  <img src="docs/images/logo.png">
 </p>
 
 ---
@@ -41,23 +41,23 @@ With Gil-Galad, we specify which hyperparameters we will optimize by passing a p
 class Graph(BaseGraph):
 
     def __init__(self, network, sampler, logdir=None, ckptdir=None):
-    
+
         self.network = network
         self.data = sampler
         self.logdir = logdir
         self.ckptdir = ckptdir
 
         self.build_graph()
-        
+
     def build_graph(self, params=None):
-    
+
         tf.reset_default_graph()
         self.data.initialize()
 
         self.x, self.y, self.z = self.data.get_batch()
-        
+
         self.y_ = self.network(self.x, params=params)
-        
+
         self.loss = tf.losses.mean_squared_error(self.y, self.y_)
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -71,7 +71,7 @@ class Graph(BaseGraph):
                 var_list=self.network.vars,
                 global_step=self.global_step
             )
-        
+
 ```
 
 ### Model-level
@@ -80,7 +80,7 @@ class Graph(BaseGraph):
 class Model(BaseModel):
   def __init__(self, name):
     self.name = name
-  
+
   def __call__(self, x, params):
     with tf.variable_scope(self.name) as vs:
       y = conv_2d(
@@ -116,4 +116,3 @@ best_model = gg.opt.bayesian_optimization(
     max_trials=50
 )
 ```
-
