@@ -112,7 +112,6 @@ class Graph(BaseGraph):
 
         self.sess = tf.Session(config=self.config)
         self.sess.run(tf.global_variables_initializer())
-        self.sess.run(tf.local_variables_initializer())
 
         if self.logdir:
             self.summary_writer = tf.summary.FileWriter(
