@@ -6,7 +6,7 @@ with open("README.md", "r") as f:
 
 
 setuptools.setup(
-    name='Gil-Galad',
+    name='gil-galad',
     version='0.1',
     author='David Reiman',
     author_email='dreiman@ucsc.edu',
