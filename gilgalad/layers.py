@@ -192,3 +192,11 @@ def flatten(x):
 
 def batch_norm(x, training):
     return ly.batch_normalization(x, training=training)
+
+
+def identity(x):
+    return tf.identity(x)
+
+
+def add(x, y):
+    return tf.add(x, y)
