@@ -200,3 +200,11 @@ def identity(x):
 
 def add(x, y):
     return tf.add(x, y)
+
+
+def global_avg_pooling_2d(x):
+    return k.layers.GlobalAveragePooling2D()(x)
+
+
+def global_avg_pooling_1d(x):
+    return k.layers.GlobalAveragePooling1D()(x)
