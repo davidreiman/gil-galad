@@ -127,6 +127,19 @@ class Graph(BaseGraph):
                 global_step=self.global_step
             )
 
+    def restore(self):
+        if not self.ckptdir:
+            raise ValueError("No checkpoint directory defined.")
+        else:
+            if not hasattr(self, 'sess'):
+                self.sess = tf.Session(config=self.config)
+
+            meta_graph = [os.path.join(self.ckptdir, file) for file
+                in os.listdir(self.ckptdir) if file.endswith('.meta')]
+            restorer = tf.train.import_meta_graph(meta_graph[0])
+            latest_ckpt = tf.train.latest_checkpoint(self.ckptdir)
+            restorer.restore(self.sess, latest_ckpt)
+
     def summarize(self):
         if self.logdir:
             summaries = self.sess.run(self.merged_summary)
@@ -137,7 +150,10 @@ class Graph(BaseGraph):
             )
 
     def train(self, n_batches, summary_interval=100, ckpt_interval=10000,
-        progress_bar=True):
+        progress_bar=True, restore_from_ckpt=False):
+
+        if restore_from_ckpt:
+            self.restore()
 
         self.network.training = True
         self.sess.run(self.data.get_dataset('train'))
@@ -167,6 +183,10 @@ class Graph(BaseGraph):
             return loss
 
     def evaluate(self):
+
+        if restore_from_ckpt:
+            self.restore()
+
         self.network.training = False
         self.sess.run(self.data.get_dataset('valid'))
 
@@ -182,6 +202,10 @@ class Graph(BaseGraph):
         return mean_score
 
     def infer(self):
+
+        if restore_from_ckpt:
+            self.restore()
+
         self.network.training = False
         self.sess.run(self.data.get_dataset('test'))
         pass
