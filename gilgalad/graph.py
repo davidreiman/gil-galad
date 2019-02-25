@@ -182,7 +182,7 @@ class Graph(BaseGraph):
             loss = self.sess.run(self.loss)
             return loss
 
-    def evaluate(self):
+    def evaluate(self, restore_from_ckpt=False):
 
         if restore_from_ckpt:
             self.restore()
@@ -201,7 +201,7 @@ class Graph(BaseGraph):
         mean_score = np.mean(scores)
         return mean_score
 
-    def infer(self):
+    def infer(self, restore_from_ckpt=False):
 
         if restore_from_ckpt:
             self.restore()
