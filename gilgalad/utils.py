@@ -57,9 +57,9 @@ class DataSampler:
         if train:
             if self.shuffle:
                 dataset = dataset.shuffle(buffer_size=self.buffer_size)
-            return dataset.repeat().batch(self.batch_size)
+            return dataset.repeat().batch(self.batch_size).prefetch(1)
         else:
-            return dataset.batch(self.batch_size)
+            return dataset.batch(self.batch_size).prefetch(1)
 
     def get_dataset(self, dataset='train'):
         if not self.initialized:
