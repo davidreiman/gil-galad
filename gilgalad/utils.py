@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 
-class DataSampler:
+class TFRecordSampler:
     """
     Creates TensorFlow Dataset objects from directories containing
     .tfrecord TensorFlow binaries and passes tensors to graph. The

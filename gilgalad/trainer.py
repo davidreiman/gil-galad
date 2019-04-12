@@ -6,52 +6,13 @@ from tqdm import tqdm as pbar
 from .utils import *
 
 
-class BaseGraph:
+class Trainer:
 
-    """ Abstract Graph class to train and evaluate models. """
-
-    def build_graph(self, params=None):
+    def __init__(self, network, sampler, learning_rate, run, log, logdir=None,
+        ckptdir=None):
         """
-        Builds the graph with hyperparameters specified by params dictionary.
-
-        Args:
-            n_batches(int): number of batchwise update iterations.
-        """
-        raise NotImplementedError('Abstract class methods should not be called.')
-
-    def train(self, n_batches, summary_interval, ckpt_interval):
-        """
-        Trains the model for n_batches update iterations.
-
-        Args:
-            n_batches(int): number of batchwise update iterations.
-        """
-        raise NotImplementedError('Abstract class methods should not be called.')
-
-    def evaluate(self):
-        """
-        Evaluates the model on a validation dataset.
-        """
-        raise NotImplementedError('Abstract class methods should not be called.')
-
-    def save(self):
-        """
-        Saves model to file.
-        """
-        raise NotImplementedError('Abstract class methods should not be called.')
-
-    def summarize(self):
-        """
-        Pushes summaries to TensorBoard via log file.
-        """
-        raise NotImplementedError('Abstract class methods should not be called.')
-
-
-class Graph(BaseGraph):
-
-    def __init__(self, network, sampler, logdir=None, ckptdir=None):
-        """
-        Builds graph and defines loss functions & optimizers.
+        Builds graph and defines loss functions & optimizers. Handles automatic
+        logging of metrics to Sacred.
 
         Args:
             network(models.Model): neural network model.
@@ -62,21 +23,17 @@ class Graph(BaseGraph):
 
         self.network = network
         self.data = sampler
+        self.learning_rate = learning_rate
+        self.run = run
+        self.log = log
         self.logdir = logdir
         self.ckptdir = ckptdir
 
-        self.build_graph()
-
-    def build_graph(self, params=None):
-        if hasattr(self, 'sess'):
-            self.sess.close()
-
-        tf.reset_default_graph()
         self.data.initialize()
 
         self.x, self.y = self.data.get_batch()
 
-        self.y_ = self.network(self.x, params=params)
+        self.y_ = self.network(self.x)
 
         self.loss = tf.losses.mean_squared_error(self.y, self.y_)
         self.eval_metric = tf.losses.mean_squared_error(self.y, self.y_)
@@ -87,7 +44,7 @@ class Graph(BaseGraph):
 
         with tf.control_dependencies(update_ops):
             opt = tf.train.AdamOptimizer(
-                learning_rate=params['lr'] if params else 0.001
+                learning_rate=self.learning_rate
             )
 
             self.update = opt.minimize(
@@ -130,15 +87,12 @@ class Graph(BaseGraph):
     def restore(self):
         if not self.ckptdir:
             raise ValueError("No checkpoint directory defined.")
-        else:
-            if not hasattr(self, 'sess'):
-                self.sess = tf.Session(config=self.config)
 
-            meta_graph = [os.path.join(self.ckptdir, file) for file
-                in os.listdir(self.ckptdir) if file.endswith('.meta')]
-            restorer = tf.train.import_meta_graph(meta_graph[0])
-            latest_ckpt = tf.train.latest_checkpoint(self.ckptdir)
-            restorer.restore(self.sess, latest_ckpt)
+        meta_graph = [os.path.join(self.ckptdir, file) for file
+            in os.listdir(self.ckptdir) if file.endswith('.meta')]
+        restorer = tf.train.import_meta_graph(meta_graph[0])
+        latest_ckpt = tf.train.latest_checkpoint(self.ckptdir)
+        restorer.restore(self.sess, latest_ckpt)
 
     def summarize(self):
         if self.logdir:
@@ -148,6 +102,10 @@ class Graph(BaseGraph):
                 summary=summaries,
                 global_step=global_step
             )
+
+    def log(self):
+        global_step = self.sess.run(self.global_step)
+        self.run.log_scalar('loss', loss, global_step)
 
     def train(self, n_batches, summary_interval=100, ckpt_interval=10000,
         progress_bar=True, restore_from_ckpt=False):
@@ -165,18 +123,19 @@ class Graph(BaseGraph):
 
         try:
             for batch in iter:
-                self.sess.run(self.update)
+                _, loss = self.sess.run([self.update, self.loss])
 
                 if batch % summary_interval == 0:
                     self.summarize()
+                    self.log()
 
                 if batch % ckpt_interval == 0 or batch + 1 == n_batches:
                     self.save()
 
         except KeyboardInterrupt:
-            print("Saving model before quitting...")
+            self.log.info("Saving model before quitting...")
             self.save()
-            print("Save complete. Training stopped.")
+            self.log.info("Save complete. Training stopped.")
 
         finally:
             loss = self.sess.run(self.loss)
