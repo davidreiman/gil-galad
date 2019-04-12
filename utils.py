@@ -157,21 +157,10 @@ def restore_session(sess, ckptdir):
     restorer.restore(sess, tf.train.latest_checkpoint(ckptdir))
 
 
-def get_total_params():
+def n_params():
     """
     Computes the total number of learnable variables in default graph.
     """
-    total_parameters = 0
-    for variable in tf.trainable_variables():
-        shape = variable.get_shape()
-        variable_parameters = 1
-        for dim in shape:
-            variable_parameters *= dim.value
-        total_parameters += variable_parameters
-    return total_parameters
-
-
-def n_params():
     return np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
 
 
