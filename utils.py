@@ -171,6 +171,10 @@ def get_total_params():
     return total_parameters
 
 
+def n_params():
+    return np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
+
+
 def get_trainable_params():
     """
     Analyzes trainable variables in default graph.

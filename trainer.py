@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import numpy as np
 import tensorflow as tf
-from tqdm import tqdm as pbar
+from tqdm import tqdm as tqdm
 
 
 from utils import *
@@ -27,7 +27,6 @@ class Trainer:
         self.run = run
         self.log = log
         self.tmpdir = tempfile.mkdtemp()
-        print(self.tmpdir)
 
         self.data.initialize()
 
@@ -66,10 +65,9 @@ class Trainer:
 
     @property
     def artifacts(self):
-        return os.listdir(self.tmpdir)
-
-    def flush(self):
-        shutil.rmtree(self.tmpdir)
+        files = [os.path.join(self.tmpdir, file)
+                for file in os.listdir(self.tmpdir)]
+        return files
 
     def save(self):
         self.saver.save(
@@ -78,14 +76,11 @@ class Trainer:
             global_step=self.global_step
         )
 
-    def restore(self):
-        if not self.ckptdir:
-            raise ValueError("No checkpoint directory defined.")
-
-        meta_graph = [os.path.join(self.ckptdir, file) for file
-            in os.listdir(self.ckptdir) if file.endswith('.meta')]
+    def restore(self, filepath):
+        meta_graph = [os.path.join(filepath, file) for file
+            in os.listdir(filepath) if file.endswith('.meta')]
         restorer = tf.train.import_meta_graph(meta_graph[0])
-        latest_ckpt = tf.train.latest_checkpoint(self.ckptdir)
+        latest_ckpt = tf.train.latest_checkpoint(filepath)
         restorer.restore(self.sess, latest_ckpt)
 
     def summarize(self):
@@ -94,21 +89,16 @@ class Trainer:
         self.run.log_scalar('loss', loss, global_step)
 
     def train(self, n_batches, summary_interval=100, ckpt_interval=10000,
-        progress_bar=True, restore_from_ckpt=False):
+        restore_from_ckpt=None):
 
-        if restore_from_ckpt:
-            self.restore()
+        if restore_from_ckpt is not None:
+            self.restore(restore_from_ckpt)
 
         self.network.training = True
         self.sess.run(self.data.get_dataset('train'))
 
-        if progress_bar:
-            iter = pbar(range(n_batches), unit='batch')
-        else:
-            iter = range(n_batches)
-
         try:
-            for batch in iter:
+            for batch in tqdm(range(n_batches), unit='batch'):
                 self.sess.run(self.update)
 
                 if batch % summary_interval == 0:
@@ -118,9 +108,16 @@ class Trainer:
                     self.save()
 
         except KeyboardInterrupt:
+            print('\n')
             self.log.info("Saving model before quitting...")
             self.save()
             self.log.info("Save complete. Training stopped.")
+
+        finally:
+            """Send logs and checkpoints to Sacred database."""
+            for file in self.artifacts:
+                self.run.add_artifact(file)
+            shutil.rmtree(self.tmpdir)
 
     def evaluate(self, restore_from_ckpt=False):
 
@@ -140,12 +137,3 @@ class Trainer:
 
         mean_score = np.mean(scores)
         return mean_score
-
-    def infer(self, restore_from_ckpt=False):
-
-        if restore_from_ckpt:
-            self.restore()
-
-        self.network.training = False
-        self.sess.run(self.data.get_dataset('test'))
-        pass
