@@ -1,7 +1,7 @@
 import sacred
 from model import ResNet
 from trainer import Trainer
-from utils import TFRecordSampler, n_params
+from utils import TFRecordSampler, n_params, get_trainable_params
 
 
 ex = sacred.Experiment('gil-galad')
@@ -42,9 +42,9 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
     )
 
     network = ResNet(
-        kernel_size=3,
-        residual_filters=32,
-        n_blocks=3,
+        kernel_size=kernel_size,
+        residual_filters=residual_filters,
+        n_blocks=n_blocks,
     )
 
     trainer = Trainer(
@@ -57,8 +57,10 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
 
     _log.info("Graph assembled. {} trainable parameters".format(n_params()))
 
+    get_trainable_params()
+
     trainer.train(
         n_batches=n_batches,
         summary_interval=5,
-        ckpt_interval=100,
+        checkpoint_interval=100,
     )

@@ -88,7 +88,7 @@ class Trainer:
         loss, global_step = self.sess.run([self.loss, self.global_step])
         self.run.log_scalar('loss', loss, global_step)
 
-    def train(self, n_batches, summary_interval=100, ckpt_interval=10000,
+    def train(self, n_batches, summary_interval=100, checkpoint_interval=10000,
         restore_from_ckpt=None):
 
         if restore_from_ckpt is not None:
@@ -104,7 +104,7 @@ class Trainer:
                 if batch % summary_interval == 0:
                     self.summarize()
 
-                if batch % ckpt_interval == 0 or batch + 1 == n_batches:
+                if batch % checkpoint_interval == 0 or batch + 1 == n_batches:
                     self.save()
 
         except KeyboardInterrupt:
