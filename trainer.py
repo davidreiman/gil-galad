@@ -108,10 +108,8 @@ class Trainer:
                     self.save()
 
         except KeyboardInterrupt:
-            print('\n')
-            self.log.info("Saving model before quitting...")
             self.save()
-            self.log.info("Save complete. Training stopped.")
+            self.log.info("Model saved. Training stopped.")
 
         finally:
             """Send logs and checkpoints to Sacred database."""
