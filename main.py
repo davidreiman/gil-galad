@@ -1,5 +1,5 @@
 import sacred
-from models import ResNet
+from model import ResNet
 from trainer import Trainer
 from utils import TFRecordSampler, n_params
 
@@ -20,22 +20,16 @@ def config():
     train_dir = './data/train'
     valid_dir = './data/valid'
     test_dir = './data/test'
-
-
-"""For reference: https://github.com/maartjeth/sacred-example-pytorch/blob/master/train_nn.py
-Uses a similar structure but puts the "Trainer" class in the top-level module
-which allows it to capture _run to log metrics... here, we capture _run and _log
-in the main function and pass it to the graph class."""
-
-
-@ex.automain
-def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
-    residual_filters, train_dir, valid_dir, test_dir, _run, _log):
-
     data_shapes = {
         'x': (32, 32, 3),
         'y': (128, 128, 3),
     }
+
+
+@ex.automain
+def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
+    residual_filters, train_dir, valid_dir, test_dir, data_shapes,
+    _run, _log):
 
     _log.info("Assembling graph...")
 
@@ -61,8 +55,7 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
         log=_log,
     )
 
-    _log.info("Graph assembled.")
-    _log.info("Total trainable parameters: {}".format(n_params()))
+    _log.info("Graph assembled. {} trainable parameters".format(n_params()))
 
     trainer.train(
         n_batches=n_batches,
