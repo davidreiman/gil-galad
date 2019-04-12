@@ -1,5 +1,9 @@
 import tensorflow as tf
-from .layers import *
+from tensorflow import keras as k
+from tensorflow import layers as ly
+
+
+from layers import *
 
 
 class ResNet:

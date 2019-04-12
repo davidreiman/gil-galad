@@ -1,15 +1,17 @@
 import os
+import shutil
+import tempfile
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm as pbar
 
-from .utils import *
+
+from utils import *
 
 
 class Trainer:
 
-    def __init__(self, network, sampler, learning_rate, run, log, logdir=None,
-        ckptdir=None):
+    def __init__(self, network, sampler, learning_rate, run, log):
         """
         Builds graph and defines loss functions & optimizers. Handles automatic
         logging of metrics to Sacred.
@@ -17,8 +19,6 @@ class Trainer:
         Args:
             network(models.Model): neural network model.
             sampler(utils.DataSampler): data sampler object.
-            logdir(str): filepath for TensorBoard logging.
-            ckptdir(str): filepath for saving model.
         """
 
         self.network = network
@@ -26,8 +26,8 @@ class Trainer:
         self.learning_rate = learning_rate
         self.run = run
         self.log = log
-        self.logdir = logdir
-        self.ckptdir = ckptdir
+        self.tmpdir = tempfile.mkdtemp()
+        print(self.tmpdir)
 
         self.data.initialize()
 
@@ -43,9 +43,7 @@ class Trainer:
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
         with tf.control_dependencies(update_ops):
-            opt = tf.train.AdamOptimizer(
-                learning_rate=self.learning_rate
-            )
+            opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
             self.update = opt.minimize(
                 loss=self.loss,
@@ -53,16 +51,7 @@ class Trainer:
                 global_step=self.global_step
             )
 
-        if self.logdir and not os.path.isdir(self.logdir):
-            os.makedirs(self.logdir)
-        if self.ckptdir and not os.path.isdir(self.ckptdir):
-            os.makedirs(self.ckptdir)
-
-        loss_summary = tf.summary.scalar("Loss", self.loss)
-        image_summary = tf.summary.image("Output", self.y_)
-        self.merged_summary = tf.summary.merge_all()
-
-        self.saver = tf.train.Saver(max_to_keep=3)
+        self.saver = tf.train.Saver(max_to_keep=1)
 
         gpu_options = tf.GPUOptions(allow_growth=True)
         self.config = tf.ConfigProto(gpu_options=gpu_options)
@@ -70,19 +59,24 @@ class Trainer:
         self.sess = tf.Session(config=self.config)
         self.sess.run(tf.global_variables_initializer())
 
-        if self.logdir:
-            self.summary_writer = tf.summary.FileWriter(
-                logdir=self.logdir,
-                graph=self.sess.graph
-            )
+        self.summary_writer = tf.summary.FileWriter(
+            logdir=self.tmpdir,
+            graph=self.sess.graph
+        )
+
+    @property
+    def artifacts(self):
+        return os.listdir(self.tmpdir)
+
+    def flush(self):
+        shutil.rmtree(self.tmpdir)
 
     def save(self):
-        if self.ckptdir:
-            self.saver.save(
-                sess=self.sess,
-                save_path=os.path.join(self.ckptdir, 'ckpt'),
-                global_step=self.global_step
-            )
+        self.saver.save(
+            sess=self.sess,
+            save_path=os.path.join(self.tmpdir, 'ckpt'),
+            global_step=self.global_step
+        )
 
     def restore(self):
         if not self.ckptdir:
@@ -95,16 +89,8 @@ class Trainer:
         restorer.restore(self.sess, latest_ckpt)
 
     def summarize(self):
-        if self.logdir:
-            summaries = self.sess.run(self.merged_summary)
-            global_step = self.sess.run(self.global_step)
-            self.summary_writer.add_summary(
-                summary=summaries,
-                global_step=global_step
-            )
-
-    def log(self):
-        global_step = self.sess.run(self.global_step)
+        """Add any metrics that should be visualized in OmniBoard here."""
+        loss, global_step = self.sess.run([self.loss, self.global_step])
         self.run.log_scalar('loss', loss, global_step)
 
     def train(self, n_batches, summary_interval=100, ckpt_interval=10000,
@@ -123,11 +109,10 @@ class Trainer:
 
         try:
             for batch in iter:
-                _, loss = self.sess.run([self.update, self.loss])
+                self.sess.run(self.update)
 
                 if batch % summary_interval == 0:
                     self.summarize()
-                    self.log()
 
                 if batch % ckpt_interval == 0 or batch + 1 == n_batches:
                     self.save()
@@ -136,10 +121,6 @@ class Trainer:
             self.log.info("Saving model before quitting...")
             self.save()
             self.log.info("Save complete. Training stopped.")
-
-        finally:
-            loss = self.sess.run(self.loss)
-            return loss
 
     def evaluate(self, restore_from_ckpt=False):
 

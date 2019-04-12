@@ -1,10 +1,12 @@
 import sacred
-import gilgalad as gg
-from sacred.observers import FileStorageObserver as obs
+from models import ResNet
+from trainer import Trainer
+from utils import TFRecordSampler
 
 
 ex = sacred.Experiment('gil-galad')
-ex.observers.append(obs.create('/Users/David/Documents/Projects/sacred-workflow/runs'))
+observer = sacred.observers.FileStorageObserver.create('/Users/David/Documents/Projects/sacred-workflow/runs')
+ex.observers.append(observer)
 
 
 @ex.config
@@ -18,8 +20,6 @@ def config():
     train_dir = './data/train'
     valid_dir = './data/valid'
     test_dir = './data/test'
-    logdir = '/Users/David/Documents/project/logdir'
-    ckptdir = '/Users/David/Documents/project/ckptdir'
 
 
 """For reference: https://github.com/maartjeth/sacred-example-pytorch/blob/master/train_nn.py
@@ -30,8 +30,7 @@ in the main function and pass it to the graph class."""
 
 @ex.automain
 def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
-    residual_filters, train_dir, valid_dir, test_dir, logdir, ckptdir,
-    _run, _log):
+    residual_filters, train_dir, valid_dir, test_dir, _run, _log):
 
     data_shapes = {
         'x': (32, 32, 3),
@@ -40,7 +39,7 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
 
     _log.info("Assembling graph...")
 
-    sampler = gg.utils.TFRecordSampler(
+    sampler = TFRecordSampler(
         train_path=train_dir,
         valid_path=valid_dir,
         test_path=test_dir,
@@ -48,22 +47,30 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
         batch_size=batch_size,
     )
 
-    network = gg.models.ResNet(
+    network = ResNet(
         kernel_size=3,
         residual_filters=32,
         n_blocks=3,
     )
 
-    trainer = gg.trainer.Trainer(
+    trainer = Trainer(
         network=network,
         sampler=sampler,
         learning_rate=learning_rate,
-        logdir=logdir,
-        ckptdir=ckptdir,
         run=_run,
         log=_log,
     )
 
     _log.info("Graph assembled.")
 
-    trainer.train(n_batches=n_batches)
+    trainer.train(
+        n_batches=n_batches,
+        summary_interval=5,
+        ckpt_interval=100,
+    )
+
+    for file in trainer.artifacts:
+        print(file)
+        ex.add_artifact(file)
+
+    trainer.flush()
