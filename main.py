@@ -57,8 +57,6 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
 
     _log.info("Graph assembled. {} trainable parameters".format(n_params()))
 
-    get_trainable_params()
-
     trainer.train(
         n_batches=n_batches,
         summary_interval=5,
