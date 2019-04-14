@@ -4,11 +4,27 @@ from trainer import Trainer
 from utils import TFRecordSampler, n_params, get_trainable_params
 
 
-ex = sacred.Experiment('gil-galad')
-observer = sacred.observers.FileStorageObserver.create('/Users/David/Documents/Projects/sacred-workflow/runs')
-ex.observers.append(observer)
+URL = '127.0.0.1'
+DB_NAME = 'gil-galad'
+USERNAME = 'username'
+PASSWORD = 'password'
+AUTHSOURCE = 'gil-galad'
 
 
+"""Define an experiment and a MongoDB observer."""
+ex = Experiment('gil-galad')
+ex.observers.append(
+    MongoObserver.create(
+        url=URL,
+        db_name=DB_NAME,
+        username=USERNAME,
+        password=PASSWORD,
+        authSource=AUTHSOURCE,
+    )
+)
+
+
+"""Define the experiment configuration."""
 @ex.config
 def config():
     learning_rate = 0.001
@@ -26,6 +42,7 @@ def config():
     }
 
 
+"""The main function to execute an experiment."""
 @ex.automain
 def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
     residual_filters, train_dir, valid_dir, test_dir, data_shapes,
