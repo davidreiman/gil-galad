@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 
-class DataSampler:
+class TFRecordSampler:
     """
     Creates TensorFlow Dataset objects from directories containing
     .tfrecord TensorFlow binaries and passes tensors to graph. The
@@ -157,18 +157,11 @@ def restore_session(sess, ckptdir):
     restorer.restore(sess, tf.train.latest_checkpoint(ckptdir))
 
 
-def get_total_params():
+def n_params():
     """
     Computes the total number of learnable variables in default graph.
     """
-    total_parameters = 0
-    for variable in tf.trainable_variables():
-        shape = variable.get_shape()
-        variable_parameters = 1
-        for dim in shape:
-            variable_parameters *= dim.value
-        total_parameters += variable_parameters
-    return total_parameters
+    return np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
 
 
 def get_trainable_params():

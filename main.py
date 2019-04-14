@@ -1,49 +1,64 @@
-import gilgalad as gg
+import sacred
+from model import ResNet
+from trainer import Trainer
+from utils import TFRecordSampler, n_params, get_trainable_params
 
 
-data_shapes = {
-    'x': (32, 32, 3),
-    'y': (128, 128, 3),
-}
+ex = sacred.Experiment('gil-galad')
+observer = sacred.observers.FileStorageObserver.create('/Users/David/Documents/Projects/sacred-workflow/runs')
+ex.observers.append(observer)
 
-sampler = gg.utils.DataSampler(
-    train_path='data/train',
-    valid_path='data/valid',
-    test_path='data/test',
-    data_shapes=data_shapes,
-    batch_size=1
-)
 
-network = gg.models.ResNet()
+@ex.config
+def config():
+    learning_rate = 0.001
+    n_batches = 1000
+    batch_size = 32
+    n_blocks = 3
+    kernel_size = 3
+    residual_filters = 32
+    train_dir = './data/train'
+    valid_dir = './data/valid'
+    test_dir = './data/test'
+    data_shapes = {
+        'x': (32, 32, 3),
+        'y': (128, 128, 3),
+    }
 
-logdir = '/Users/David/Documents/project/logdir'
-ckptdir = '/Users/David/Documents/project/ckptdir'
 
-graph = gg.graph.Graph(
-    network=network,
-    sampler=sampler,
-    logdir=logdir,
-    ckptdir=ckptdir
-)
+@ex.automain
+def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
+    residual_filters, train_dir, valid_dir, test_dir, data_shapes,
+    _run, _log):
 
-graph.train(n_batches=10)
-graph.evaluate()
+    _log.info("Assembling graph...")
 
-hyperparameters = {
-    'Discrete':
-        {'filters': [64, 128],
-         'kernel_size': [3, 5]},
-    'Continuous':
-        {'lr': [1e-5, 1e-3]},
-    'Choice':
-        {'activation': ['relu', 'prelu']}
-}
+    sampler = TFRecordSampler(
+        train_path=train_dir,
+        valid_path=valid_dir,
+        test_path=test_dir,
+        data_shapes=data_shapes,
+        batch_size=batch_size,
+    )
 
-best_model = gg.opt.bayesian_optimization(
-    graph=graph,
-    params=hyperparameters,
-    max_trials=3,
-    iter_per_trial=3,
-    batches_per_iter=1,
-    dashboard=False
-)
+    network = ResNet(
+        kernel_size=kernel_size,
+        residual_filters=residual_filters,
+        n_blocks=n_blocks,
+    )
+
+    trainer = Trainer(
+        network=network,
+        sampler=sampler,
+        learning_rate=learning_rate,
+        run=_run,
+        log=_log,
+    )
+
+    _log.info("Graph assembled. {} trainable parameters".format(n_params()))
+
+    trainer.train(
+        n_batches=n_batches,
+        summary_interval=5,
+        checkpoint_interval=100,
+    )
