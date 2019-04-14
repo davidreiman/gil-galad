@@ -12,9 +12,9 @@ class TFRecordSampler:
     (training, validation, testing) via the initialize method.
 
     Args:
-        train_path(str): training data filepath containing .tfrecords files.
-        train_path(str): validation data filepath containing .tfrecords files.
-        train_path(str): test data filepath containing .tfrecords files.
+        train_dir(str): training data directory containing .tfrecords files.
+        valid_dir(str): validation data directory containing .tfrecords files.
+        test_dir(str): test data filepath directory .tfrecords files.
         data_shapes(dict): data shape dictionary to specify reshaping operation.
         batch_size(int): number of samples per batch call.
         shuffle(bool): shuffle data (only applicable to training set).
@@ -23,14 +23,14 @@ class TFRecordSampler:
     Note: this class currently only supports float data. In the future, it will
     need to accomodate integer-valued data as well.
     """
-    def __init__(self, train_path, valid_path, test_path, data_shapes,
+    def __init__(self, train_dir, valid_dir, test_dir, data_shapes,
         batch_size, shuffle=True, buffer_size=10000):
         assert isinstance(batch_size, int), "Batch size must be integer-valued."
         assert isinstance(buffer_size, int), "Buffer size must be integer-valued."
 
-        self.train_path = train_path
-        self.valid_path = valid_path
-        self.test_path = test_path
+        self.train_dir = train_dir
+        self.valid_dir = valid_dir
+        self.test_dir = test_dir
         self.data_shapes = data_shapes
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -38,8 +38,8 @@ class TFRecordSampler:
         self.initialized = False
 
     def initialize(self):
-        valid, test = map(self.make_dataset, [self.valid_path, self.test_path])
-        train = self.make_dataset(self.train_path, train=True)
+        valid, test = map(self.make_dataset, [self.valid_dir, self.test_dir])
+        train = self.make_dataset(self.train_dir, train=True)
 
         self.iter = tf.data.Iterator.from_structure(
             train.output_types, train.output_shapes)
@@ -63,7 +63,7 @@ class TFRecordSampler:
 
     def get_dataset(self, dataset='train'):
         if not self.initialized:
-            raise ValueError('Sampler must be initialized before dataset retrieval.')
+            raise RuntimeError('Sampler must be initialized before dataset retrieval.')
         try:
             return self.init_ops.get(dataset)
         except:
@@ -78,7 +78,7 @@ class TFRecordSampler:
 
     def get_batch(self):
         if not self.initialized:
-            raise ValueError('Sampler must be initialized before batch retrieval.')
+            raise RuntimeError('Sampler must be initialized before batch retrieval.')
         batch = self.iter.get_next()
         batch = [tf.reshape(batch[i], [-1] + list(v))
             for i, v in enumerate(self.data_shapes.values())]
