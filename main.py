@@ -1,4 +1,6 @@
-import sacred
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
 from model import ResNet
 from trainer import Trainer
 from utils import TFRecordSampler, n_params, get_trainable_params
@@ -40,6 +42,13 @@ def config():
         'x': (32, 32, 3),
         'y': (128, 128, 3),
     }
+
+
+"""Or a specific named configuration."""
+@ex.named_config
+def small():
+    n_blocks = 1
+    residual_filters = 16
 
 
 """The main function to execute an experiment."""
