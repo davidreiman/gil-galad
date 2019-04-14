@@ -3,7 +3,7 @@ from sacred.observers import MongoObserver
 
 from model import ResNet
 from trainer import Trainer
-from utils import TFRecordSampler, n_params, get_trainable_params
+from utils import TFRecordSampler, n_params
 
 
 URL = '127.0.0.1'
