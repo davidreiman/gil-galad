@@ -60,9 +60,9 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
     _log.info("Assembling graph...")
 
     sampler = TFRecordSampler(
-        train_path=train_dir,
-        valid_path=valid_dir,
-        test_path=test_dir,
+        train_dir=train_dir,
+        valid_dir=valid_dir,
+        test_dir=test_dir,
         data_shapes=data_shapes,
         batch_size=batch_size,
     )
