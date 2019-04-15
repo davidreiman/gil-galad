@@ -69,6 +69,19 @@ class Trainer:
                 for file in os.listdir(self.tmpdir)]
         return files
 
+    def _train_mode(self):
+        self.sess.run(self.data.get_dataset('train'))
+        self.network.training = True
+
+    def _eval_mode(self):
+        self.sess.run(self.data.get_dataset('valid'))
+        self.network.training = False
+
+    def _valid_loss(self):
+        valid_loss = self.evaluate()
+        self._train_mode()
+        return valid_loss
+
     def save(self):
         self.saver.save(
             sess=self.sess,
@@ -85,17 +98,19 @@ class Trainer:
 
     def summarize(self):
         """Add any metrics that should be visualized in OmniBoard here."""
-        loss, global_step = self.sess.run([self.loss, self.global_step])
-        self.run.log_scalar('loss', loss, global_step)
+        train_loss, global_step = self.sess.run([self.loss, self.global_step])
+        valid_loss = self._valid_loss()
+
+        self.run.log_scalar('training_loss', train_loss, global_step)
+        self.run.log_scalar('validation_loss', valid_loss, global_step)
 
     def train(self, n_batches, summary_interval=100, checkpoint_interval=10000,
         restore_from_ckpt=None):
 
+        self._train_mode()
+
         if restore_from_ckpt is not None:
             self.restore(restore_from_ckpt)
-
-        self.network.training = True
-        self.sess.run(self.data.get_dataset('train'))
 
         try:
             for batch in tqdm(range(n_batches), unit='batch'):
@@ -117,18 +132,13 @@ class Trainer:
                 self.run.add_artifact(file)
             shutil.rmtree(self.tmpdir)
 
-    def evaluate(self, restore_from_ckpt=False):
-
-        if restore_from_ckpt:
-            self.restore()
-
-        self.network.training = False
-        self.sess.run(self.data.get_dataset('valid'))
+    def evaluate(self):
+        self._eval_mode()
 
         scores = []
         while True:
             try:
-                metric = self.sess.run(self.eval_metric)
+                metric = self.sess.run(self.loss)
                 scores.append(metric)
             except tf.errors.OutOfRangeError:
                 break
