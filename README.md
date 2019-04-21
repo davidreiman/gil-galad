@@ -98,6 +98,7 @@ def main(learning_rate, n_batches, batch_size, n_blocks, kernel_size,
     _log.info("Graph assembled. {} trainable parameters".format(n_params()))
     
     """The train method automatically sends TensorFlow logs and the latest checkpoint to Sacred."""
+    
     trainer.train(
         n_batches=n_batches,
         summary_interval=5,
